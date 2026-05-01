@@ -13,7 +13,6 @@ API_KEY = os.getenv("CLE_API")
 
 
 def hash_uid(uid):
-    """Hache un UID avec SHA-256. A implementer en Phase 6."""
     return hashlib.sha256(uid.encode()).hexdigest() # Convertie le badge brut en son hash
 
 def validate_badge_id(badge_id):
@@ -21,13 +20,18 @@ def validate_badge_id(badge_id):
         return True
     return False
 
+def verify_api_key(data):
+    if not data:
+        return False
+    api_key = data.get("api_key")
+    return API_KEY == api_key
+    
+
+
+
 @app.route('/scan', methods=['POST'])
 def scan():
-    """
-    Route principale de scan RFID.
-    Recoit : { 'badge_id': 'A3F2B1C4', 'api_key': '...' }
-    Retourne : { 'status': 'granted'/'denied', 'message': '...' }
-    """
+    """ Route principale de scan RFID """
     data = request.get_json()
 
     if data is None: # Verifie que data n'est pas None
@@ -39,7 +43,7 @@ def scan():
         return jsonify({"erreur": "Le badge_id est manquant"}), 400 
 
 
-    if (data.get('api_key') != API_KEY):
+    if not verify_api_key(data):
         return jsonify({"erreur": "mauvaise clé API"}), 403 
     
 
@@ -62,19 +66,7 @@ def scan():
     result = database.process_scan(badge_hash, ip_source=request.remote_addr)
     
     return jsonify(result)
-       # database.log_access(badge_id, action="scan", status="denied", ip_source=request.remote_addr)
-       # return jsonify({"status": "denied", "message": "badge inconnu"}), 200
-    #else:
-        #database.log_access(badge_id, action="scan", status="granted", ip_source=request.remote_addr)
-        #return jsonify({"status": "granted", "message": "accès autorisé"}), 200
-    # TODO : Enregistrer l'evenement (Phase 4/5)
 
-"""
-def test_hash(badge_id):
-    b_b = badge_id
-    b_h = hash_uid(b_b)
-    print(f"Badge brut: {b_b} | Badge hash: {b_h} | Le badge brut genere toujours le meme hash : {b_h == b_h}")
-"""
     
 @app.route('/health', methods=['GET'])
 def health():
@@ -89,7 +81,5 @@ if __name__ == '__main__':
     if database.add_student(badge_hash, nom, prenom, 'INFO3', 1):
         print(f"etudiant {nom} {prenom} ajouter dans la BDD")
     #"""
-
-    #test_hash('A3F2B1C4')
     database.init_db()  # Cree les tables si elles n'existent pas
     app.run(debug=True, port=5000)
